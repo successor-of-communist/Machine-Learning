@@ -47,7 +47,6 @@ def dsadmm(comm,rank,size,P,start,testnum,pdata,pnum):
     rou=0.05
     lambda1=0.05
     lambda2=0.05
-    pdata=np.empty([rnum+1,4],dtype=int)
     #fi=open('p'+str(rank),'r')
     #for line in fi:
     #    arr=line.split()
@@ -58,6 +57,8 @@ def dsadmm(comm,rank,size,P,start,testnum,pdata,pnum):
     #    pnum+=1
     #fi.close()
     trainpnum=int(pnum*0.9)
+    if rank==0:
+        print pdata[2]
     for step in range(1):
         for l in range(trainpnum):
             #userid=testdata[l][0]
@@ -101,39 +102,45 @@ if __name__=='__main__':
     rank=comm.Get_rank()
     size=comm.Get_size()
     testnum=0
+    P=4
+    unum=943
+    inum=1682
+    rnum=100000
     #if rank==0:
         #testnum=splitdata('./u.data',P,unum)
     splitdata=np.empty((P,rnum+1,4),int)
-    upnum=unum/P+1;
-    data=[0 for i in range(unum+1)]
-    datarank=[0 for i in range(unum+1)]
-    newrow=[0 for i in range(P)]
     rpnum=[0 for i in range(P)]
-    for i in range(unum):
-        rand=random.randint(0,P-1)
-        while newrow[rand]>=upnum:
+    if rank==0:
+        upnum=unum/P+1;
+        data=[0 for i in range(unum+1)]
+        datarank=[0 for i in range(unum+1)]
+        newrow=[0 for i in range(P)]
+        for i in range(unum):
             rand=random.randint(0,P-1)
-        else:
-            data[i]=rand
-            datarank[i]=newrow[rand]
-            newrow[rand]+=1
-    fi=open(datafile,'r')
-    for line in fi:
-        arr=line.split()
-        uid=int(arr[0].strip())
-        iid=int(arr[0].strip())
-        rate=int(arr[0].strip())
-        tmp=data[uid]
-        splitdata[tmp][rpnum[tmp]]=[uid,iid,rate,datarank[uid]]
-        rpnum[tmp]+=1
-        #afi=open('p'+str(data[tmp]),'a')
-        #afi.write(line.strip()+'\t'+str(datarank[tmp])+'\n')
-        #afi.close()
-    fi.close()
+            while newrow[rand]>=upnum:
+                rand=random.randint(0,P-1)
+            else:
+                data[i]=rand
+                datarank[i]=newrow[rand]
+                newrow[rand]+=1
+        fi=open("../Downloads/u.data",'r')
+        for line in fi:
+            arr=line.split()
+            uid=int(arr[0].strip())
+            iid=int(arr[1].strip())
+            rate=int(arr[2].strip())
+            tmp=data[uid]
+            splitdata[tmp][rpnum[tmp]]=[uid,iid,rate,datarank[uid]]
+            rpnum[tmp]+=1
+            #afi=open('p'+str(data[tmp]),'a')
+            #afi.write(line.strip()+'\t'+str(datarank[tmp])+'\n')
+            #afi.close()
+        fi.close()
+    splitdata=comm.bcast(splitdata,root=0)
+    rpnum=comm.bcast(rpnum,root=0)
     testnum=0
     for i in range(P):
         testnum+=rpnum[i]-int(rpnum[i]*0.9)
-    splitdata=comm.bcast(splitdata,root=0)
     dsadmm(comm,rank,size,P,start,testnum,splitdata[rank],rpnum[rank])
     end=time.clock()
     if rank==0:
